@@ -56,7 +56,7 @@ std::string ShiftCommandLineArgs(int& argc, char**& argv)
 	return Arg;
 }
 
-std::string TakeAllArgs(int argc, char** argv)
+std::string CollectRemainingArgs(int argc, char** argv)
 {
 	if (!argc || argv == nullptr)
 		return {};
@@ -171,7 +171,7 @@ int Execute(int& argc, char**& argv)
 				if (argc > 0)
 				{
 					std::string Paragraph;
-					Paragraph = TakeAllArgs(argc, argv);
+					Paragraph = CollectRemainingArgs(argc, argv);
 					HandleParagraph(Paragraph);
 				}
 				else
