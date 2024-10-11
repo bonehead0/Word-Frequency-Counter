@@ -17,7 +17,6 @@ bool IsWordLowercase(std::string_view Word)
 		if (std::isalpha(ch) && !std::islower(ch))
 			return false;
 	}
-
 	return true;
 }
 
@@ -56,13 +55,13 @@ std::string ShiftCommandLineArgs(int& argc, char**& argv)
 	return Arg;
 }
 
-std::string CollectRemainingArgs(int argc, char** argv)
+std::optional<std::string> CollectRemainingArgs(int argc, char** argv)
 {
 	if (!argc || argv == nullptr)
-		return {};
+		return std::nullopt;
 
 	std::string AllArgs;
-	AllArgs.reserve(static_cast<size_t>(argc * 10));
+	AllArgs.reserve(static_cast<size_t>(argc * 7));
 
 	for (int i{}; i < argc; ++i)
 	{
@@ -70,6 +69,7 @@ std::string CollectRemainingArgs(int argc, char** argv)
 		AllArgs.push_back(' ');
 	}
 
+	AllArgs.shrink_to_fit();
 	return AllArgs;
 }
 
@@ -84,8 +84,9 @@ void PrintUsage(std::string_view ProgramName)
 		"FILE\t\t\tPath to input File\n"
 		"PARAGRAPH\t\tInput Paragraph\n"
 		"Option:\n"
-		"-p \t\t\t(Flag to enter paragraph)\n"
+		"-p \t\t\t(Paragraph as argument)\n"
 		"-h \t\t\t(Print Usage or help)\n"
+		"-f \t\t\t(Multiple Files)\n"
 		"---------------------------------------------------\n";
 
 	std::cout << UsageString;
@@ -97,7 +98,7 @@ void ListOccurences(const std::unordered_map<std::string, uint32_t>& Words)
 	for (const auto& [word, occurrence] : Words) {
 		MaxWordLength = std::max(MaxWordLength, static_cast<int>(word.length()));
 	}
-	const int WordWidth = MaxWordLength + 4; // Add padding
+	const int WordWidth = MaxWordLength + 4; // Max Word Length + Added padding
 
 	std::cout
 		<< std::left << std::setw(WordWidth)
@@ -111,6 +112,7 @@ void ListOccurences(const std::unordered_map<std::string, uint32_t>& Words)
 			<< "\t|\t"
 			<< std::setw(2) << occurence << '\n';
 	}
+	std::cout << "\n\n";
 }
 
 void HandleParagraph(std::string_view Paragraph)
@@ -151,6 +153,18 @@ void HandleFile(const std::filesystem::path& Filename)
 	HandleParagraph(oss.str());
 }
 
+void HandleMultipleFiles(std::string_view RemainingArgs)
+{
+	std::istringstream iss{ RemainingArgs.data() };
+	std::string Filename;
+
+	while (std::getline(iss, Filename, ' '))
+	{
+		std::cout << "Filename: " << Filename << '\n';
+		HandleFile(Filename);
+	}
+}
+
 int Execute(int& argc, char**& argv)
 {
 	std::string ProgramName = ShiftCommandLineArgs(argc, argv);
@@ -166,25 +180,31 @@ int Execute(int& argc, char**& argv)
 
 		if (Argument[0] == '-')
 		{
-			if (Argument.at(1) == 'p')
+			switch (Argument.at(1))
 			{
-				if (argc > 0)
-				{
-					std::string Paragraph;
-					Paragraph = CollectRemainingArgs(argc, argv);
-					HandleParagraph(Paragraph);
-				}
+			case 'p':
+			{
+				auto Paragraph = CollectRemainingArgs(argc, argv);
+				if (Paragraph)
+					HandleParagraph(*Paragraph);
 				else
-				{
 					throw std::invalid_argument("no argument passed after the flag, expected paragraph");
-				}
+				break;
 			}
-			else if (Argument[0] == 'h')
-			{
+			case 'h':
 				PrintUsage(ProgramName);
-			}
-			else
+				break;
+			case 'f':
 			{
+				auto RemainingArgs = CollectRemainingArgs(argc, argv);
+				if (RemainingArgs)
+					HandleMultipleFiles(*RemainingArgs);
+				else
+					throw std::invalid_argument("No arguments passed after"
+						" flag -f\nExpected: filename(s)\n");
+				break;
+			}
+			default:
 				throw std::invalid_argument("invalid flag");
 			}
 		}
