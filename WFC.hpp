@@ -14,6 +14,7 @@ void MakeWordLowercase(std::string& Word);
 void HandleWord(std::string& Word);
 std::string ShiftCommandLineArgs(int& argc, char**& argv);
 std::optional<std::string> CollectRemainingArgs(int argc, char** argv);
+void HandleFlags(char Flag, int argc, char** argv);
 void PrintUsage(std::string_view ProgramName);
 void ListOccurences(const std::unordered_map<std::string, uint32_t>& Words);
 void HandleParagraph(std::string_view Paragraph);

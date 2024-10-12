@@ -9,6 +9,17 @@
 #include<iostream>
 #include<algorithm>
 
+static std::string ProgramName;
+
+static void ErrorApproach(std::string_view Message, bool Exit = true)
+{
+	std::cerr << Message << '\n';
+	if (Exit)
+	{
+		std::cerr << "Program Exited!!!\n";
+		std::exit(EXIT_FAILURE);
+	}
+}
 
 bool IsWordLowercase(std::string_view Word)
 {
@@ -25,9 +36,7 @@ void MakeWordLowercase(std::string& Word)
 	for (char& ch : Word)
 	{
 		if (std::isalpha(ch) && !std::islower(ch))
-		{
 			ch = static_cast<char>(std::tolower(ch));
-		}
 	}
 }
 
@@ -38,7 +47,8 @@ void HandleWord(std::string& Word)
 		MakeWordLowercase(Word);
 	}
 
-	auto [Begin, End] = std::ranges::remove_if(Word, [](const char ch) -> bool
+	auto [Begin, End] = std::ranges::remove_if(Word,
+		[](const char ch) -> bool
 		{
 			if (std::isgraph(ch) && !std::isalnum(ch))
 				return true;
@@ -71,6 +81,37 @@ std::optional<std::string> CollectRemainingArgs(int argc, char** argv)
 
 	AllArgs.shrink_to_fit();
 	return AllArgs;
+}
+
+void HandleFlags(char Flag, int argc, char** argv)
+{
+	switch (Flag)
+	{
+	case 'p':
+	{
+		auto Paragraph = CollectRemainingArgs(argc, argv);
+		if (Paragraph)
+			HandleParagraph(*Paragraph);
+		else
+			ErrorApproach("no argument passed after the flag, expected paragraph");
+		break;
+	}
+	case 'h':
+		PrintUsage(ProgramName);
+		break;
+	case 'f':
+	{
+		auto RemainingArgs = CollectRemainingArgs(argc, argv);
+		if (RemainingArgs)
+			HandleMultipleFiles(*RemainingArgs);
+		else
+			ErrorApproach("No arguments passed after"
+				" flag -f\nExpected: filename(s)\n");
+		break;
+	}
+	default:
+		ErrorApproach("invalid flag");
+	}
 }
 
 void PrintUsage(std::string_view ProgramName)
@@ -141,11 +182,11 @@ void HandleParagraph(std::string_view Paragraph)
 void HandleFile(const std::filesystem::path& Filename)
 {
 	if (!exists(Filename))
-		throw std::invalid_argument("File doesn't exist: " + Filename.string());
+		ErrorApproach("File doesn't exist: " + Filename.string());
 
 	std::ifstream File(Filename);
 	if (!File.is_open())
-		throw std::invalid_argument("Unable to open file: " + Filename.string());
+		ErrorApproach("Unable to open file: " + Filename.string());
 
 	std::ostringstream oss;
 	oss << File.rdbuf();
@@ -167,62 +208,24 @@ void HandleMultipleFiles(std::string_view RemainingArgs)
 
 int Execute(int& argc, char**& argv)
 {
-	std::string ProgramName = ShiftCommandLineArgs(argc, argv);
-	try
+	ProgramName = ShiftCommandLineArgs(argc, argv);
+
+	if (argc < 1)
 	{
-		if (argc < 1)
-		{
-			PrintUsage(ProgramName);
-			std::exit(0);
-		}
-
-		std::string Argument = ShiftCommandLineArgs(argc, argv);
-
-		if (Argument[0] == '-')
-		{
-			switch (Argument.at(1))
-			{
-			case 'p':
-			{
-				auto Paragraph = CollectRemainingArgs(argc, argv);
-				if (Paragraph)
-					HandleParagraph(*Paragraph);
-				else
-					throw std::invalid_argument("no argument passed after the flag, expected paragraph");
-				break;
-			}
-			case 'h':
-				PrintUsage(ProgramName);
-				break;
-			case 'f':
-			{
-				auto RemainingArgs = CollectRemainingArgs(argc, argv);
-				if (RemainingArgs)
-					HandleMultipleFiles(*RemainingArgs);
-				else
-					throw std::invalid_argument("No arguments passed after"
-						" flag -f\nExpected: filename(s)\n");
-				break;
-			}
-			default:
-				throw std::invalid_argument("invalid flag");
-			}
-		}
-		else
-		{
-			//if not flag, then it's a file
-			HandleFile(Argument);
-		}
+		PrintUsage(ProgramName);
+		std::exit(0);
 	}
-	catch (const std::exception& e)
+
+	std::string Argument = ShiftCommandLineArgs(argc, argv);
+
+	if (Argument[0] == '-')
 	{
-		std::cerr
-			<< "---------------------------------------\n"
-			<< "[!Program Execution Failed!]\nReason: "
-			<< e.what() << '\n'
-			<< "Program Name: " << ProgramName << '\n'
-			<< "---------------------------------------\n";
-		return EXIT_FAILURE;
+		HandleFlags(Argument.at(1), argc, argv);
+	}
+	else
+	{
+		//if not flag, then it's a file
+		HandleFile(Argument);
 	}
 
 	return EXIT_SUCCESS;
